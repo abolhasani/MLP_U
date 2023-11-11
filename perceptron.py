@@ -69,12 +69,24 @@ class VotedPerceptron:
         return self.weights, self.counts
 
     # sgn(sum(c_i*sgn(W_i^T.X)))
+    # this one shoudl be used for HWs
+    
     def predict(self, test_inputs):
         predictions = np.zeros(len(test_inputs))
         for i, x in enumerate(test_inputs):
             votes = sum(c * np.sign(np.dot(w, x)) for w, c in zip(self.weights, self.counts))
             predictions[i] = np.sign(votes)
         return predictions
+    """
+    # this one should be used for project
+    def predict(self, test_inputs):
+        predictions = np.zeros(len(test_inputs))
+        for i, x in enumerate(test_inputs):
+            x = np.insert(x, 0, 1)  # Insert bias term
+            votes = sum(c * np.sign(np.dot(w, x)) for w, c in zip(self.weights, self.counts))
+            predictions[i] = np.sign(votes)
+        return predictions
+    """
 
 # According to slide 89 of the Perceptron lecture:
 class AveragedPerceptron:

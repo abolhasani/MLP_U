@@ -11,7 +11,6 @@ def train_knn_and_report_metrics(file_path, target_column, n_neighbors=4):
     # Separate features and target
     X = data.drop(columns=[target_column])
     y = data[target_column]
-
     # Splitting the dataset into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 

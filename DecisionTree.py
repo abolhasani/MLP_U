@@ -17,6 +17,29 @@ class nodes:
         else :
             self.children = children
 
+def custom_train_test_split(X, y, test_size=0.2, random_state=None):
+    # Set the random seed for reproducibility
+    if random_state is not None:
+        np.random.seed(random_state)
+
+    # Shuffle the indices
+    shuffled_indices = np.random.permutation(len(X))
+
+    # Calculate the size of the test set
+    test_set_size = int(len(X) * test_size)
+
+    # Split indices for train and test sets
+    test_indices = shuffled_indices[:test_set_size]
+    train_indices = shuffled_indices[test_set_size:]
+
+    # Split the data into train and test sets
+    X_train = X.iloc[train_indices]
+    X_test = X.iloc[test_indices]
+    y_train = y.iloc[train_indices]
+    y_test = y.iloc[test_indices]
+
+    return X_train, X_test, y_train, y_test
+
 # the preprocessing function to handle the bank data, I had to take it here to prevent several repetitions. 
 def data_bank(data, label_to_b=None):
     if label_to_b is None:
@@ -84,6 +107,36 @@ def bagged_trees(train, test, max_trees):
         test_errors.append(test_error)
         print(f"Number of Trees: {n_trees}, Train Error: {train_error}, Test Error: {test_error}")
     return train_errors, test_errors, trees
+
+def bagged_trees_data(train, test, max_trees, end_label):
+    # Set_of_examples, attributes, labels, max_features=None, heuristic='HS'
+    # tree = ID3(train.values, attribute_indices, end_label, heuristic='HS')
+    # attribute_indices = [i for i in range(len(X_train.columns))]
+    trees = []
+    train_errors = []
+    test_errors = []
+    for n_trees in range(1, max_trees+1):
+        # bootstrap the data
+        bootstrap = train.sample(n=len(train), replace=True)
+        # generate the trees from the existing ID3 algorithm with no defined depth
+        tree = ID3(bootstrap.values, list(range(bootstrap.shape[1] - 1)), end_label, heuristic='HS')
+        trees.append(tree)
+        # getting the predictions (built in the error function)
+        train_predictions = [error(tree, train)[1] for tree in trees]
+        train_predictions = np.array(train_predictions).T
+        train_predictions = np.apply_along_axis(replace_none, axis=1, arr=train_predictions)
+        #print(train_predictions)
+        majority_vote_train = np.apply_along_axis(lambda x: np.unique(x, return_counts=True)[0][np.argmax(np.unique(x, return_counts=True)[1])], axis=1, arr=train_predictions)
+        train_error = np.mean(majority_vote_train != train.iloc[:, -1].values)
+        train_errors.append(train_error)
+        test_predictions = [error(tree, test)[1] for tree in trees]
+        test_predictions = np.array(test_predictions).T
+        test_predictions = np.apply_along_axis(replace_none, axis=1, arr=test_predictions)
+        majority_vote_test = majority_vote_train = np.apply_along_axis(lambda x: np.unique(x, return_counts=True)[0][np.argmax(np.unique(x, return_counts=True)[1])], axis=1, arr=test_predictions)
+        test_error = np.mean(majority_vote_test != test.iloc[:, -1].values)
+        test_errors.append(test_error)
+        print(f"Number of Trees: {n_trees}, Train Error: {train_error}, Test Error: {test_error}")
+    return train_errors[-1], test_errors[-1], trees[-1]
 
 # used for bias variance decomposition. Here I seperate biases and variances and compute them
 def calculate_bias_variance(predictions, true_labels):
@@ -168,6 +221,8 @@ def bias_variance_decomposition_rf(feature_subset_sizes, train, test, n_iteratio
     avg_squared_error_bagging = np.mean(all_squared_error_bagging)
     return avg_bias_single_tree, avg_variance_single_tree, avg_bias_bagging, avg_variance_bagging, train_errors, test_errors, avg_squared_error_single_tree, avg_squared_error_bagging
 
+
+
 # the modified ID3 function that has been changed to accept custom randomly selected features. 
 def ID3_rf(Set_of_examples, attributes, labels, max_features=None, heuristic='HS'):
     unique_labels = np.unique(Set_of_examples[:, -1])
@@ -199,8 +254,9 @@ def ID3_rf(Set_of_examples, attributes, labels, max_features=None, heuristic='HS
             root.children[value] = ID3_rf(subset_values, remaining_attributes, labels, max_features, heuristic)
     return root
 
-# a modified function of bagged trees that has the job of iterating over max_trees size, bootstrapping the data, and build max_trees trees and append them to make the forest
-def random_forest(train, test, max_trees, max_features=None):
+#sampled_train = train.sample(n=sample_size, replace=False)
+#train_errors_rf, test_errors_rf, trees = random_forest(sampled_train, test, n_trees, max_features)
+def random_forest_data(train, test, end_label, max_trees, max_features=None):
     trees = []
     train_errors = []
     test_errors = []
@@ -209,7 +265,7 @@ def random_forest(train, test, max_trees, max_features=None):
         #test = test.sample(frac=1).reset_index(drop=True)
         # bootstrap the data
         bootstrap = train.sample(n=len(train), replace=True)
-        tree = ID3_rf(bootstrap.values, list(range(bootstrap.shape[1] - 1)), list(range(2)), heuristic='HS')
+        tree = ID3_rf(bootstrap.values, list(range(bootstrap.shape[1] - 1)), end_label, max_features, heuristic='HS')
         #tree = ID3_rf(bootstrap.values, list(range(bootstrap.shape[1] - 1)), list(range(2)), max_features, heuristic='HS')
         trees.append(tree)
         # getting the predictions (built in the error function)
@@ -229,6 +285,45 @@ def random_forest(train, test, max_trees, max_features=None):
         test_errors.append(test_error)
         print(f"Number of Trees: {n_trees}, Train Error: {train_error}, Test Error: {test_error}")
     return train_errors, test_errors, trees
+
+# a modified function of bagged trees that has the job of iterating over max_trees size, bootstrapping the data, and build max_trees trees and append them to make the forest
+def random_forest(train, test, end_label, max_trees, max_features=None):
+    trees = []
+    train_errors = []
+    test_errors = []
+    for n_trees in range(1, max_trees+1):
+        #train = train.sample(frac=1).reset_index(drop=True)
+        #test = test.sample(frac=1).reset_index(drop=True)
+        # bootstrap the data
+        bootstrap = train.sample(n=len(train), replace=True)
+        tree = ID3_rf(bootstrap.values, list(range(bootstrap.shape[1] - 1)), end_label, max_features, heuristic='HS')
+        #tree = ID3_rf(bootstrap.values, list(range(bootstrap.shape[1] - 1)), list(range(2)), max_features, heuristic='HS')
+        trees.append(tree)
+        # getting the predictions (built in the error function)
+        train_predictions = [error(tree, train)[1] for tree in trees]
+        train_predictions = np.array(train_predictions).T
+        train_predictions = np.apply_along_axis(replace_none, axis=1, arr=train_predictions)
+        #print(train_predictions)
+        majority_vote_train = np.apply_along_axis(lambda x: np.unique(x, return_counts=True)[0][np.argmax(np.unique(x, return_counts=True)[1])], axis=1, arr=train_predictions)
+        train_error = np.mean(majority_vote_train != train.iloc[:, -1].values)
+        train_errors.append(train_error)
+        test_predictions = [error(tree, test)[1] for tree in trees]
+        test_predictions = np.array(test_predictions).T
+        test_predictions = np.apply_along_axis(replace_none, axis=1, arr=test_predictions)
+        #majority_vote_test = majority_vote_train = np.apply_along_axis(lambda x: np.unique(x, return_counts=True)[0][np.argmax(np.unique(x, return_counts=True)[1])], axis=1, arr=test_predictions)
+        majority_vote_test = np.apply_along_axis(lambda x: np.unique(x, return_counts=True)[0][np.argmax(np.unique(x, return_counts=True)[1])], axis=1, arr=test_predictions)
+        test_error = np.mean(majority_vote_test != test.iloc[:, -1].values)
+        test_errors.append(test_error)
+        print(f"Number of Trees: {n_trees}, Train Error: {train_error}, Test Error: {test_error}")
+    return train_errors, test_errors, trees
+
+import numpy as np
+
+class Node:
+    def __init__(self, label=None, attribute=None, children=None):
+        self.label = label
+        self.attribute = attribute
+        self.children = {} if children is None else children
 
 # modified ID3 from the previous DecisionTree.py for HW1 that determines no depth. it is not comfortable with the codes of the HW1, as they force a tree depyth
 def ID3(Set_of_examples, attributes, labels, heuristic='HS'):

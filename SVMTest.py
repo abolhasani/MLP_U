@@ -20,7 +20,7 @@ def train_svm_and_report_metrics(file_path, target_column):
     X_test = X_test.values
 
     # Initialize SVM classifier
-    svm_model = SVC(probability=True, random_state=42)
+    svm_model = SVC(probability=True, max_iter =10,  random_state=42)
     svm_model.fit(X_train, y_train)
 
     # Predict on the test set
@@ -41,8 +41,8 @@ def train_svm_and_report_metrics(file_path, target_column):
     return accuracy, clf_report, conf_matrix, auc_score
 
 # Paths to the CSV files
-readmitted_file_path = 'smote_re.csv'
-time_in_hospital_file_path = 'smote_time.csv'
+readmitted_file_path = 'smote_re_sv.csv'
+time_in_hospital_file_path = 'smote_time_sv.csv'
 
 # Train SVM and report metrics for 'readmitted'
 accuracy_readmitted, clf_report_readmitted, conf_matrix_readmitted, auc_score_readmitted = train_svm_and_report_metrics(readmitted_file_path, 'readmitted')
