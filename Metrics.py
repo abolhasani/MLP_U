@@ -1,4 +1,4 @@
-from sklearn.metrics import r2_score, f1_score, roc_auc_score, recall_score, precision_score
+from sklearn.metrics import r2_score, f1_score, roc_auc_score, recall_score, precision_score, accuracy_score
 import numpy as np
 
 def metrics_report(tree, test_data):

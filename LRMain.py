@@ -88,5 +88,5 @@ def run_logistic_regression(file_path, target_column):
 # Example usage
 print("For Readmitted Task: ")
 run_logistic_regression('smote_re_sv.csv', 'readmitted')
-print("For Time in Hospital Task: ")
-run_logistic_regression('smote_time_sv.csv', 'time_in_hospital')
+#print("For Time in Hospital Task: ")
+#run_logistic_regression('smote_time_sv.csv', 'time_in_hospital')

@@ -37,7 +37,7 @@ def run_tree_on_diabetes_data(file_path, end_label):
     # Initializing depth, heuristic methods, and result data frame
     #result = {'train error': [], 'test error': []}
             
-    tree = ID3(train.values, attribute_indices, end_label, heuristic='HS')
+    tree = ID3(train.values, attribute_indices, end_label, heuristic='ME')
 
     #training_error, _ = error(tree, train)
     #print("Training set Error: ", training_error)
@@ -53,6 +53,6 @@ def run_tree_on_diabetes_data(file_path, end_label):
 # Replace 'path_to_your_new_data.csv' with the actual path to your new dataset
 print("Prediction for Readmittion with Decision Trees:")
 run_tree_on_diabetes_data('smote_re.csv', 'readmitted')
-print("Prediction for Time in Hospital with Decision Trees: ")
-run_tree_on_diabetes_data('smote_time.csv', 'time_in_hospital')
+#print("Prediction for Time in Hospital with Decision Trees: ")
+#run_tree_on_diabetes_data('smote_time.csv', 'time_in_hospital')
 

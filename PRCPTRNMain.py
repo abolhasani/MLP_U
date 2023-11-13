@@ -35,7 +35,6 @@ def load_data(filepath, target_column, test_size=0.3):
 
     return X_train, X_test, y_train, y_test
 
-
 def stdperc():
     file_path = 'smote_re_sv.csv'
     target_column = 'readmitted'
@@ -84,8 +83,8 @@ def main():
     stdperc()
     print("Average Perceptron: ")
     aveperc()
-    print("Voted Perceptron: ")
-    votedperc()
+    #print("Voted Perceptron: ")
+    #votedperc()
 
 if __name__ == '__main__':
     main()

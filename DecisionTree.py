@@ -284,7 +284,7 @@ def random_forest_data(train, test, end_label, max_trees, max_features=None):
         test_error = np.mean(majority_vote_test != test.iloc[:, -1].values)
         test_errors.append(test_error)
         print(f"Number of Trees: {n_trees}, Train Error: {train_error}, Test Error: {test_error}")
-    return train_errors, test_errors, trees
+    return train_errors, test_errors, trees[-1]
 
 # a modified function of bagged trees that has the job of iterating over max_trees size, bootstrapping the data, and build max_trees trees and append them to make the forest
 def random_forest(train, test, end_label, max_trees, max_features=None):
@@ -361,6 +361,21 @@ def HS(Set_of_examples, labels):
     entropy = -np.sum(p * logtwos)
     return entropy
 
+def ME(Set_of_examples, labels):
+    label_count = np.bincount(Set_of_examples[:, -1], minlength=len(labels))
+    # find the most repeated label value
+    max = np.max(label_count)
+    MajErr = 1 - max / (len(Set_of_examples))
+    return MajErr
+
+# computing Gini index based on page 11 decision tree learning discussion
+def gini_index(Set_of_examples, labels):
+    label_count = np.bincount(Set_of_examples[:, -1], minlength=len(labels))
+    p = (label_count / len(Set_of_examples)+1)
+    # same as entropy till here. Then, we get the sum of their squares
+    p_2 = 1 - np.sum(p**2)
+    return p_2
+
 # this part computes |Sv|/|S|, which will be used to compute gain
 def SvOnS (Set_of_examples, attributes, value):
     subset_values = Set_of_examples[Set_of_examples[:, attributes] == value]
@@ -371,7 +386,7 @@ def SvOnS (Set_of_examples, attributes, value):
 def information_gain(Set_of_examples, attributes, labels, heuristic):
     attribute_values = np.unique(Set_of_examples[:, attributes])
     gain = 0
-    h_methods = {'HS': HS}
+    h_methods = {'gini': gini_index, 'ME': ME, 'HS': HS}
     if heuristic in h_methods:
         gain_function = h_methods[heuristic]
         gain = gain_function(Set_of_examples, labels)

@@ -30,7 +30,7 @@ def run_tree_on_diabetes_data(file_path, end_label):
     test = pd.concat([X_test, y_test], axis=1)
     #attributes = list(X_train.columns) 
     #attribute_indices = [i for i in range(len(X_train.columns))]
-    max_trees = 60 
+    max_trees = 10 
     training_error, _, tree = bagged_trees_data(train, test, max_trees, end_label)
     #print("Training set Error: ", training_error)
     test_acc, r_squared, f1, auc, recall, precision, predict = metrics_report(tree, test)
