@@ -2,7 +2,7 @@
 
 This repository contains all the necessary files to run the project aimed to fullfill the requirements of CS6350 at The University Of Utah - Fall 2023
 
-Project team: Sadegh Abolhasani, Hamid Firrozfar
+Project team: Sadegh Abolhasani, Hamid Firoozfar
 
 Below, you can find the list of the files that exist in the repository, and a brief description of them. In the codes, we have done our best to unsure enough commenting has been done.
 
