@@ -1,127 +1,138 @@
 import numpy as np
 import pandas as pd
-import random
-import math
-#from Metrics import *
-from DecisionTree import ID3_rf, error, replace_none, custom_train_test_split
-from sklearn.metrics import accuracy_score, r2_score, f1_score, roc_auc_score, recall_score, precision_score
+from RF import *
+from utils import manual_k_fold_split
 
-def preprocess_and_rearrange(data, label_column):
-    # Move the label column to the end of the DataFrame
-    label = data[label_column]
-    data = data.drop(label_column, axis=1)
-    data[label_column] = label
-    return data
+# main model no k-fold cross validation for readmission
+def custom_train_test_split1(X, y, test_size=0.2, random_state=None):
+    # setting the random seed for reproducibility
+    if random_state is not None:
+        np.random.seed(random_state)
+    shuffled_indices = np.random.permutation(len(X))
+    test_set_size = int(len(X) * test_size)
+    test_indices = shuffled_indices[:test_set_size]
+    train_indices = shuffled_indices[test_set_size:]
+    X_train = X.iloc[train_indices]
+    X_test = X.iloc[test_indices]
+    y_train = y.iloc[train_indices]
+    y_test = y.iloc[test_indices]
+    return X_train, X_test, y_train, y_test
 
-# New preprocessing function for the diabetes dataset
-def preprocess_diabetes_data(data, end_goal):
-    for column in ['num_lab_procedures', 'num_procedures', 'num_medications', 'number_outpatient', 'number_emergency', 'number_inpatient', 'number_diagnoses', 'service_utilization', 'number_of_medications', 'number_of_medication_changes']:
-        median_val = data[column].median()
-        data[column] = (data[column] > median_val).astype(int)
-    # Split data into features and label
-    #columns_to_drop = ['diag_1', 'diag_2', 'diag_3']
-    #data.drop(columns=columns_to_drop, inplace=True)
-    X = data.drop(end_goal, axis=1)
-    y = data[end_goal]
-    return X, y
-
-def balanced_bootstrap_sampling(data, label_column, sample_size):
-    unique_labels = data[label_column].unique()
-    samples_per_label = sample_size // len(unique_labels)
-    balanced_sample = pd.DataFrame()
-
-    for label in unique_labels:
-        label_sample = data[data[label_column] == label].sample(n=samples_per_label, replace=True)
-        balanced_sample = pd.concat([balanced_sample, label_sample])
-
-    return balanced_sample
-
-def random_forest_data(train, test, end_label, max_trees, max_features=None, sample_size=None, heuristic='HS'):
-    trees = []
-    #train_errors = []
-    #test_errors = []
-
-    for n_trees in range(1, max_trees + 1):
-        #print(n_trees)
-        #bootstrap = train.sample(n=len(train), replace=True)
-        bootstrap = balanced_bootstrap_sampling(train, end_label, sample_size)
-        tree = ID3_rf(bootstrap.values, list(range(bootstrap.shape[1] - 1)), end_label, max_features, heuristic)
-        trees.append(tree)
-        # Error calculation omitted for brevity, can be included as before
-    print("Done making the trees!\n")
-    return trees
-
-def calculate_metrics(trees, test_set):
-    # Generating predictions for each tree
-    test_predictions = np.array([error(tree, test_set)[1] for tree in trees]).T
-
-    # Convert None to np.nan and ensure numeric types
-    test_predictions = np.where(test_predictions == None, np.nan, test_predictions).astype(float)
-
-    # Function to perform majority vote while excluding -1 and NaN values
-    def majority_vote(arr):
-        arr = arr[~np.isnan(arr)]  # Exclude NaN values
-        arr = arr[arr >= 0]        # Exclude negative values
-        if len(arr) == 0:
-            return np.nan  # Return NaN if no valid predictions
-        return np.bincount(arr.astype(int)).argmax()
-
-    # Calculating majority vote
-    majority_vote_test = np.apply_along_axis(majority_vote, axis=1, arr=test_predictions)
-
-    # Exclude rows where majority vote resulted in NaN (i.e., no valid predictions)
-    valid_indices = ~np.isnan(majority_vote_test)
-    majority_vote_test = majority_vote_test[valid_indices]
-    y_true = test_set.iloc[:, -1].values[valid_indices]
-    y_ord = test_set.iloc[:, -1].values
-
-    # Compute error rate
-    errors = np.sum(majority_vote_test != y_true)
-    error_rate = errors / len(y_true) if len(y_ord) > 0 else np.nan
-
-    # Metrics calculation
-    test_acc = accuracy_score(y_true, majority_vote_test) if len(y_true) > 0 else np.nan
-    r_squared = r2_score(y_true, majority_vote_test) if len(y_true) > 0 else np.nan
-    f1 = f1_score(y_true, majority_vote_test, average='weighted') if len(y_true) > 0 else np.nan
-    auc = roc_auc_score(y_true, majority_vote_test) if (len(np.unique(y_true)) == 2 and len(y_true) > 0) else np.nan
-    recall = recall_score(y_true, majority_vote_test, average='weighted') if len(y_true) > 0 else np.nan
-    precision = precision_score(y_true, majority_vote_test, average='weighted') if len(y_true) > 0 else np.nan
-
-    return 1-error_rate, test_acc, r_squared, f1, auc, recall, precision
-
-
-
-data = pd.read_csv('smote_re.csv') # Load your dataset
-# Preprocess your data
+data = pd.read_csv('smote_re.csv') 
 data = preprocess_and_rearrange(data, 'readmitted')
 X, y = preprocess_diabetes_data(data, 'readmitted')
 
-# Split data into training and testing sets
-X_train, X_test, y_train, y_test = custom_train_test_split(X, y, test_size=0.1)
-
-# Combine features and labels for train and test sets
+X_train, X_test, y_train, y_test = custom_train_test_split1(X, y, test_size=0.1)
 train = pd.concat([X_train, y_train], axis=1)
 test = pd.concat([X_test, y_test], axis=1)
+subset_feature_size = 3 
+number_of_trees = 1000 
+sample_size = 2000 
+#subset_feature_size = int(math.sqrt(X_train.shape[1]))
+number_of_trees = 100  
+sample_size = len(train) 
 
-# Set your parameters
-subset_feature_size = 3 # Example value
-number_of_trees = 1000 # Example value
-sample_size = 2000 # Example value
-
-number_of_trees = 100  # Equivalent to n_estimators in scikit-learn
-#subset_feature_size = int(math.sqrt(X_train.shape[1]))  # Default scikit-learn behavior for classification
-sample_size = len(train)  # Use the entire dataset for each bootstrap sample
-
-# Run Random Forest
-trees = random_forest_data(train, test, 'readmitted', number_of_trees, subset_feature_size, sample_size, 'gini')
-
-# Calculate Metrics
+trees = random_forest_data(train, test, 'readmitted', number_of_trees, subset_feature_size, sample_size, 'ME')
 accu, test_acc, r_squared, f1, auc, recall, precision = calculate_metrics(trees, test)
 print(f"Accuracy: {accu}, Test Accuracy: {test_acc}, R-squared: {r_squared}, F-1 Score: {f1}, AUC: {auc}, Recall: {recall}, Precision: {precision}")
+# Accuracy: 0.7836817653890824, Test Accuracy: 0.7836817653890824, R-squared: 0.1345014872536352, F-1 Score: 0.7836842791208027, AUC: 0.7836375626934728, Recall: 0.7836817653890824, Precision: 0.7836876862151123
+
+# main model no k-fold cross validation for stay time in hospital
+data = pd.read_csv('smote_time.csv') 
+data = preprocess_and_rearrange(data, 'time_in_hospital')
+X, y = preprocess_diabetes_data(data, 'time_in_hospital')
+X_train, X_test, y_train, y_test = custom_train_test_split1(X, y, test_size=0.1)
+train = pd.concat([X_train, y_train], axis=1)
+test = pd.concat([X_test, y_test], axis=1)
+subset_feature_size = 3 
+number_of_trees = 1000 
+sample_size = 2000 
+number_of_trees = 100  # Equivalent to n_estimators in scikit-learn
+#subset_feature_size = int(math.sqrt(X_train.shape[1]))  
+sample_size = len(train)  
+
+trees = random_forest_data(train, test, 'time_in_hospital', number_of_trees, subset_feature_size, sample_size, 'ME')
+accu, test_acc, r_squared, f1, auc, recall, precision = calculate_metrics(trees, test)
+print(f"Accuracy: {accu}, Test Accuracy: {test_acc}, R-squared: {r_squared}, F-1 Score: {f1}, AUC: {auc}, Recall: {recall}, Precision: {precision}")
+# Accuracy: 0.5496665247623103, Test Accuracy: 0.5496665247623101, R-squared: -0.23363681322669416, F-1 Score: 0.44598335493343394, AUC: nan, Recall: 0.5496665247623101, Precision: 0.382020085728277
+"""
 
 
+"""
 
+print("\n5-fold cross validation for readmitted")
+data = pd.read_csv('smote_re.csv')
+data = preprocess_and_rearrange(data, 'readmitted')
+X, y = preprocess_diabetes_data(data, 'readmitted')
+number_of_trees_values = [50, 100]
+subset_feature_size_values = [2, 3, 4, 6]  
+sample_size_values = [500, 1000, 2000]  
+results = []
 
+# 5-Fold Cross-Validation
+for number_of_trees in number_of_trees_values:
+    for subset_feature_size in subset_feature_size_values:
+        for sample_size in sample_size_values:
+            print(f"num trees: {number_of_trees}, sub feature size: {subset_feature_size}, sample size: {sample_size}")
+            accuracies = []
+            for X_train, X_test, y_train, y_test in manual_k_fold_split(X, y):
+                X_train_df = pd.DataFrame(X_train)
+                y_train_df = pd.DataFrame(y_train, columns=['readmitted'])
+                X_test_df = pd.DataFrame(X_test)
+                y_test_df = pd.DataFrame(y_test, columns=['readmitted'])
+                train = pd.concat([X_train_df, y_train_df], axis=1)
+                test = pd.concat([X_test_df, y_test_df], axis=1)
+                trees = random_forest_data(train, test, 'readmitted', number_of_trees, subset_feature_size, sample_size, 'ME')
+                accu, test_acc, _, _, _, _, _ = calculate_metrics(trees, test)
+                accuracies.append(accu)
+            avg_accuracy = sum(accuracies) / len(accuracies)
+            results.append((number_of_trees, subset_feature_size, sample_size, avg_accuracy))
+
+best_params = max(results, key=lambda x: x[3])
+train = pd.concat([X, y], axis=1)
+trees = random_forest_data(train, train, 'readmitted', best_params[0], best_params[1], best_params[2], 'ME')
+accu, test_acc, r_squared, f1, auc, recall, precision = calculate_metrics(trees, train)
+print(f"Best Hyperparameters: Number of Trees: {best_params[0]}, Subset Feature Size: {best_params[1]}, Sample Size: {best_params[2]}")
+print(f"Full Model Metrics - Accuracy: {accu}, Test Accuracy: {test_acc}, R-squared: {r_squared}, F-1 Score: {f1}, AUC: {auc}, Recall: {recall}, Precision: {precision}")
+# Best Hyperparameters: Number of Trees: 100, Subset Feature Size: 4, Sample Size: 2000
+# Full Model Metrics - Accuracy: 0.7594539035097907, Test Accuracy: 0.7594539035097907, R-squared: 0.03781561403916289, F-1 Score: 0.7591875571170539, AUC: 0.7594539035097907, Recall: 0.7594539035097907, Precision: 0.7606068621664038
+
+print("\n5-fold cross validation for time_in_hospital")
+data = pd.read_csv('smote_time.csv')
+data = preprocess_and_rearrange(data, 'time_in_hospital')
+X, y = preprocess_diabetes_data(data, 'time_in_hospital')
+results = []
+
+# 5-Fold Cross-Validation
+for number_of_trees in number_of_trees_values:
+    for subset_feature_size in subset_feature_size_values:
+        for sample_size in sample_size_values:
+            print(f"num trees: {number_of_trees}, sub feature size: {subset_feature_size}, sample size: {sample_size}")
+            accuracies = []
+            for X_train, X_test, y_train, y_test in manual_k_fold_split(X, y):
+                X_train_df = pd.DataFrame(X_train)
+                y_train_df = pd.DataFrame(y_train, columns=['time_in_hospital'])
+                X_test_df = pd.DataFrame(X_test)
+                y_test_df = pd.DataFrame(y_test, columns=['time_in_hospital'])
+                train = pd.concat([X_train_df, y_train_df], axis=1)
+                test = pd.concat([X_test_df, y_test_df], axis=1)
+                trees = random_forest_data(train, test, 'time_in_hospital', number_of_trees, subset_feature_size, sample_size, 'ME')
+                accu, test_acc, _, _, _, _, _ = calculate_metrics(trees, test)
+                accuracies.append(accu)
+            avg_accuracy = sum(accuracies) / len(accuracies)
+            results.append((number_of_trees, subset_feature_size, sample_size, avg_accuracy))
+
+best_params = max(results, key=lambda x: x[3])
+train = pd.concat([X, y], axis=1)
+trees = random_forest_data(train, train, 'time_in_hospital', best_params[0], best_params[1], best_params[2], 'ME')
+accu, test_acc, r_squared, f1, auc, recall, precision = calculate_metrics(trees, train)
+print(f"Best Hyperparameters: Number of Trees: {best_params[0]}, Subset Feature Size: {best_params[1]}, Sample Size: {best_params[2]}")
+print(f"Full Model Metrics - Accuracy: {accu}, Test Accuracy: {test_acc}, R-squared: {r_squared}, F-1 Score: {f1}, AUC: {auc}, Recall: {recall}, Precision: {precision}")
+#Best Hyperparameters: Number of Trees: 50, Subset Feature Size: 4, Sample Size: 500
+#Full Model Metrics - Accuracy: 0.5151553852703278, Test Accuracy: 0.5151553852703278, R-squared: -0.4090676883780333, F-1 Score: 0.411973811123256, AUC: nan, Recall: 0.5151553852703278, Precision: 0.3435367047250203    
+
+"""
+"""
 
 
 

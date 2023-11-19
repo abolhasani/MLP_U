@@ -1,8 +1,7 @@
 import pandas as pd
 import numpy as np
 
-# Load the dataset
-file_path = 'diabetic_data.csv'  # Update this path to the actual file location
+file_path = 'diabetic_data.csv'  
 data = pd.read_csv(file_path)
 
 # 'service_utilization' as the sum of 'number_outpatient', 'number_emergency', and 'number_inpatient'
@@ -80,8 +79,5 @@ data.drop(columns=['encounter_id', 'patient_nbr', 'A1Cresult', 'max_glu_serum'],
 data.replace('?', np.nan, inplace=True)
 data.dropna(inplace=True)
 
-
-
-# Save the preprocessed data
 output_file_path = 'preproc.csv'
 data.to_csv(output_file_path, index=False)

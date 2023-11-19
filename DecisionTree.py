@@ -18,26 +18,16 @@ class nodes:
             self.children = children
 
 def custom_train_test_split(X, y, test_size=0.2, random_state=None):
-    # Set the random seed for reproducibility
     if random_state is not None:
         np.random.seed(random_state)
-
-    # Shuffle the indices
     shuffled_indices = np.random.permutation(len(X))
-
-    # Calculate the size of the test set
     test_set_size = int(len(X) * test_size)
-
-    # Split indices for train and test sets
     test_indices = shuffled_indices[:test_set_size]
     train_indices = shuffled_indices[test_set_size:]
-
-    # Split the data into train and test sets
     X_train = X.iloc[train_indices]
     X_test = X.iloc[test_indices]
     y_train = y.iloc[train_indices]
     y_test = y.iloc[test_indices]
-
     return X_train, X_test, y_train, y_test
 
 # the preprocessing function to handle the bank data, I had to take it here to prevent several repetitions. 
@@ -108,7 +98,7 @@ def bagged_trees(train, test, max_trees):
         print(f"Number of Trees: {n_trees}, Train Error: {train_error}, Test Error: {test_error}")
     return train_errors, test_errors, trees
 
-def bagged_trees_data(train, test, max_trees, end_label):
+def bagged_trees_data(train, test, max_trees, end_label, heuristic):
     # Set_of_examples, attributes, labels, max_features=None, heuristic='HS'
     # tree = ID3(train.values, attribute_indices, end_label, heuristic='HS')
     # attribute_indices = [i for i in range(len(X_train.columns))]
@@ -119,7 +109,7 @@ def bagged_trees_data(train, test, max_trees, end_label):
         # bootstrap the data
         bootstrap = train.sample(n=len(train), replace=True)
         # generate the trees from the existing ID3 algorithm with no defined depth
-        tree = ID3(bootstrap.values, list(range(bootstrap.shape[1] - 1)), end_label, heuristic='HS')
+        tree = ID3(bootstrap.values, list(range(bootstrap.shape[1] - 1)), end_label, heuristic)
         trees.append(tree)
         # getting the predictions (built in the error function)
         train_predictions = [error(tree, train)[1] for tree in trees]
@@ -135,7 +125,7 @@ def bagged_trees_data(train, test, max_trees, end_label):
         majority_vote_test = majority_vote_train = np.apply_along_axis(lambda x: np.unique(x, return_counts=True)[0][np.argmax(np.unique(x, return_counts=True)[1])], axis=1, arr=test_predictions)
         test_error = np.mean(majority_vote_test != test.iloc[:, -1].values)
         test_errors.append(test_error)
-        print(f"Number of Trees: {n_trees}, Train Error: {train_error}, Test Error: {test_error}")
+        #print(f"Number of Trees: {n_trees}, Train Error: {train_error}, Test Error: {test_error}")
     return train_errors[-1], test_errors[-1], trees[-1]
 
 # used for bias variance decomposition. Here I seperate biases and variances and compute them
